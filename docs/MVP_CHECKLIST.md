@@ -676,22 +676,24 @@ preserved byte-for-byte and only lossless crops are used. Production migration
 
 ## Phase 20 — Railway production deployment
 
-**OPEN:** Production closure is deferred until Phases 19A–19D are verified. No new Railway service is authorized for the Collector or artifact hosting. Use the existing Django service for ingestion and the simplest versioned HTTPS artifact channel (GitHub Releases first). Continuous observation and unavailable capability packs remain post-MVP.
+**IN PROGRESS:** The production application and its independent release smoke are
+verified on commit `7819b56`. Release tagging and the plan-gated scheduled-volume
+backup remain open. Evidence: `docs/PHASE20_CHECKPOINT.md`.
 
 - [ ] 20.1: The owner-approved public GitHub repository exists, `main` is protected from force pushes, release candidates are tagged, and no secrets are committed. Repository visibility was explicitly changed by the founder.
-- [ ] 20.2: The Railway project and production environment exist with Railway PostgreSQL and no public database TCP proxy.
-- [ ] 20.3: Separate owner/app/worker database credentials are provisioned; long-running web and worker services never receive owner credentials.
-- [ ] 20.4: `web` is the only publicly reachable application service, binds Gunicorn to Railway's injected port, and uses `/readyz` as deployment healthcheck.
-- [ ] 20.5: `worker` has no public domain and reaches PostgreSQL privately.
-- [ ] 20.6: `renderer` has no public domain, exposes only its private application port, and receives no useful application secrets.
-- [ ] 20.7: The private `reports` bucket exists; only web/worker receive credentials as required.
-- [ ] 20.8: Production variables are present in Railway, secrets are not committed or copied into `.env`, and `.env.example` contains names only.
-- [ ] 20.9: Owner-credential migrations run only in a bounded migration operation, before incompatible code, using expand/contract compatibility.
-- [ ] 20.10: The Railway domain is fully verified before an approved custom domain is attached; customer outreach never uses a local address.
+- [x] 20.2: The Railway project and production environment exist with Railway PostgreSQL and no public database TCP proxy.
+- [x] 20.3: Separate owner/app/worker database credentials are provisioned; long-running web and worker services never receive owner credentials.
+- [x] 20.4: `web` is the only publicly reachable application service, binds Gunicorn to Railway's injected port, and uses `/readyz` as deployment healthcheck.
+- [x] 20.5: `worker` has no public domain and reaches PostgreSQL privately.
+- [x] 20.6: `renderer` has no public domain, exposes only its private application port, and receives no useful application secrets.
+- [x] 20.7: The private `reports` bucket exists; only web/worker receive credentials as required.
+- [x] 20.8: Production variables are present in Railway, secrets are not committed or copied into `.env`, and `.env.example` contains names only.
+- [x] 20.9: Owner-credential migrations run only in a bounded migration operation, before incompatible code, using expand/contract compatibility.
+- [x] 20.10: The Railway domain is fully verified before an approved custom domain is attached; customer outreach never uses a local address.
 - [ ] 20.11: Scheduled volume backups and PITR are enabled as approved, a custom-format logical dump is encrypted off-platform, and an actual clean restore drill passes before customer data.
-- [ ] 20.12: A smoke test from an unrelated network verifies HTTPS, login, workspace, inventory, CSV, assessment, ROI, rule builder, browser/PDF reports, logout/login, authorized download, and cross-tenant isolation.
-- [ ] Production availability has no dependency on the founder's computer, WSL2, router, home Internet, or personal availability; Caddy is not deployed.
-- [ ] Railway deployment IDs are recorded as release evidence.
+- [x] 20.12: A smoke test from an unrelated network verifies HTTPS, login, workspace, inventory, CSV, assessment, ROI, rule builder, browser/PDF reports, logout/login, authorized download, and cross-tenant isolation.
+- [x] Production availability has no dependency on the founder's computer, WSL2, router, home Internet, or personal availability; Caddy is not deployed.
+- [x] Railway deployment IDs are recorded as release evidence.
 
 ## Phase 21 — Demo data
 

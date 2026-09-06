@@ -8,10 +8,14 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.urls import reverse
 
+from apps.assessments.models import AssessmentSnapshot
 from apps.audit.models import AuditEvent
 from apps.inventory.forms import DATA_CATEGORY_CHOICES, InventoryItemForm
 from apps.inventory.models import InventoryItem
+from apps.jobs.models import BackgroundJob
 from apps.organizations.models import Organization, OrganizationMember
+from apps.policies.models import OrganizationRule
+from apps.reports.models import Report
 
 pytestmark = pytest.mark.django_db
 
@@ -349,9 +353,81 @@ def test_demo_command_creates_exactly_ten_manual_items_and_refuses_overwrite():
     items = InventoryItem.objects.filter(organization=organization)
     assert items.count() == 10
     assert set(items.values_list("source_type", flat=True)) == {"manual"}
+    assert set(items.values_list("display_name", flat=True)) == {
+        "ChatGPT",
+        "Microsoft Copilot",
+        "Google Gemini",
+        "QuickBooks",
+        "Grammarly",
+        "Canva",
+        "Otter",
+        "Zapier",
+        "LedgerWise AI Bookkeeping Assistant",
+        "Unknown AI Tool",
+    }
+    assert items.filter(product__isnull=True).count() == 10
     assert sum(items.values_list("monthly_cost_cents", flat=True)) > 0
+    assert items.filter(
+        data_categories__contains=["payroll"],
+        capabilities__contains=["external_transfer"],
+        human_approval=False,
+    ).exists()
+    assert items.filter(
+        connected_systems__contains=["banking"],
+        permissions__contains=["write"],
+    ).exists()
     with pytest.raises(CommandError, match="no items"):
         call_command("seed_demo_inventory", str(organization.id), verbosity=0)
+
+
+def test_demo_company_builds_four_band_report_and_two_roi_scenarios():
+    user = get_user_model().objects.create_user("demo-builder@example.com")
+    organization = Organization.objects.create(name="Demo Bookkeeping Company")
+    OrganizationMember.objects.create(
+        user=user,
+        organization=organization,
+        role=OrganizationMember.Role.OWNER,
+    )
+
+    call_command(
+        "seed_demo_company",
+        str(organization.id),
+        str(user.id),
+        verbosity=0,
+    )
+
+    assert InventoryItem.objects.filter(organization=organization).count() == 10
+    assert OrganizationRule.objects.filter(organization=organization).count() == 2
+    snapshots = list(
+        AssessmentSnapshot.objects.filter(organization=organization).order_by(
+            "captured_at"
+        )
+    )
+    assert len(snapshots) == 2
+    assert Decimal(snapshots[0].result_payload["roi"]["roi_percent"]) < 0
+    assert Decimal(snapshots[1].result_payload["roi"]["roi_percent"]) > 0
+
+    inventory_results = snapshots[1].result_payload["inventory_results"]
+    assert {result["risk"]["band"] for result in inventory_results} == {
+        "Low",
+        "Moderate",
+        "High",
+        "Critical",
+    }
+    assert {
+        finding["severity"]
+        for result in inventory_results
+        for finding in result["policy_results"]
+        if finding["result"] in {"FAIL", "WARNING"}
+    } == {"LOW", "MODERATE", "HIGH", "CRITICAL"}
+
+    report = Report.objects.get(organization=organization)
+    job = BackgroundJob.objects.get(
+        organization=organization,
+        job_type=BackgroundJob.Type.REPORT_GENERATION,
+    )
+    assert job.payload == {"report_id": str(report.id)}
+    assert job.status == BackgroundJob.Status.QUEUED
 
 
 def test_monthly_cost_display_is_decimal_safe():

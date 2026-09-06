@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -281,7 +281,7 @@ def test_reconciled_evidence_rule_and_calculation_lineage_reaches_report(
     reconciliation_context,
 ):
     user, organization, _product = reconciliation_context
-    ingest_bundle(
+    scan, _created = ingest_bundle(
         organization_id=organization.id,
         actor_user_id=user.id,
         raw=encoded(example_bundle()),
@@ -309,7 +309,7 @@ def test_reconciled_evidence_rule_and_calculation_lineage_reaches_report(
         created_by_id=user.id,
         assessed_item_id=item.id,
         roi_inputs=roi_inputs,
-        captured_at=datetime(2026, 9, 6, tzinfo=UTC),
+        captured_at=scan.received_at + timedelta(microseconds=1),
     )
     report = create_report(
         organization_id=organization.id,
