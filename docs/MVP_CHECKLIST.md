@@ -717,45 +717,47 @@ Phase 22 is complete. The disposable login proof used a locally encrypted creden
 
 ## Phase 23 — Final MVP release gate
 
-- [ ] The full automated suite passes, including tenant RLS, raw SQL, worker leases, rules, risk, ROI, CSV, snapshots, Merkle, renderer security, and report ownership.
-- [ ] Django deployment checks and repository production-security validation pass.
-- [ ] No cross-tenant data access is possible under the tested web and worker roles.
-- [ ] Identical assessment input produces identical output and identical input/ruleset/engine produces identical hashes.
-- [ ] Historical assessments remain unchanged.
-- [ ] Manual inventory is never silently overwritten.
-- [ ] Unknown products remain unknown.
-- [ ] The PDF matches its immutable assessment snapshot.
-- [ ] Worker crash recovery passes.
-- [ ] Report downloads are tenant-authorized.
-- [ ] Backup restoration passes on a clean target.
+- [x] The full automated suite passes, including tenant RLS, raw SQL, worker leases, rules, risk, ROI, CSV, snapshots, Merkle, renderer security, and report ownership.
+- [x] Django deployment checks and repository production-security validation pass.
+- [x] No cross-tenant data access is possible under the tested web and worker roles.
+- [x] Identical assessment input produces identical output and identical input/ruleset/engine produces identical hashes.
+- [x] Historical assessments remain unchanged.
+- [x] Manual inventory is never silently overwritten.
+- [x] Unknown products remain unknown.
+- [x] The PDF matches its immutable assessment snapshot.
+- [x] Worker crash recovery passes.
+- [x] Report downloads are tenant-authorized.
+- [x] Backup restoration passes on a clean target.
+
+Phase 23 evidence, 2026-09-06: `docs/PHASE23_CHECKPOINT.md`. The canonical restricted-role suite passed 413 tests with 88.43% coverage after rerunning with an isolated temp root; Ruff lint and format checks passed; Django deploy check passed with only the accepted HSTS preload ramp-up warning; the production smoke test passed against the Railway deployment at commit `a012afca25edc90161e24299320819659cc8c3d4`, including signup/login, workspace setup, manual inventory, CSV approval, custom rule save, ROI, immutable assessment, browser report, private PDF, logout/login historical retrieval, and cross-tenant denials. Phase 20 already records PITR, encrypted off-platform backup, and clean restore drill evidence.
 
 ## Sellable MVP acceptance matrix
 
-- [ ] Authentication
-- [ ] Organizations and organization membership
-- [ ] PostgreSQL RLS
-- [ ] Manual AI/software inventory
-- [ ] CSV import with preview
-- [ ] Small deterministic product catalog
-- [ ] Accounting/bookkeeping rules pack
-- [ ] Deterministic policy engine
-- [ ] Deterministic risk engine
-- [ ] ROI calculator
-- [ ] Visual no-code rule builder
-- [ ] Findings and remediation UI
-- [ ] Immutable assessment snapshots
-- [ ] Browser report
-- [ ] PDF report
-- [ ] Audit trail
-- [ ] Merkle audit sealing
-- [ ] PostgreSQL background jobs
-- [ ] Tenant-isolation tests
-- [ ] Security release gates
-- [ ] Railway deployment
-- [ ] Verified backups
-- [ ] Health and readiness checks
-- [ ] Demo organization
-- [ ] Founder-assisted onboarding path
+- [x] Authentication
+- [x] Organizations and organization membership
+- [x] PostgreSQL RLS
+- [x] Manual AI/software inventory
+- [x] CSV import with preview
+- [x] Small deterministic product catalog
+- [x] Accounting/bookkeeping rules pack
+- [x] Deterministic policy engine
+- [x] Deterministic risk engine
+- [x] ROI calculator
+- [x] Visual no-code rule builder
+- [x] Findings and remediation UI
+- [x] Immutable assessment snapshots
+- [x] Browser report
+- [x] PDF report
+- [x] Audit trail
+- [x] Merkle audit sealing
+- [x] PostgreSQL background jobs
+- [x] Tenant-isolation tests
+- [x] Security release gates
+- [x] Railway deployment
+- [x] Verified backups
+- [x] Health and readiness checks
+- [x] Demo organization
+- [x] Founder-assisted onboarding path
 
 ## Explicitly excluded from the MVP
 
