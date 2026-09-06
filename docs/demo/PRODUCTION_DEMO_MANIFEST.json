@@ -26,6 +26,14 @@
       "durationSeconds": 167.966667,
       "watermark": "DEMONSTRATION ONLY - NO REAL-WORLD TRANSACTIONS - CONTROLLED SCENARIOS - TRUTHFUL ENGINE DISCOVERY"
     },
+    "narratedVideo": {
+      "sha256": "13f36bb086de398d09eddafd1db0fb7551e4526f9ee19b5529d3d9457dcb2ebe",
+      "videoCodec": "h264",
+      "audioCodec": "aac",
+      "durationSeconds": 167.966667,
+      "narrationAudioSha256": "659f38a5240c5d5c9f03b7a4db75463d3798435fdfda449ea414c5bd87d5425e",
+      "narrationScriptSha256": "e0a430ce725cfc733acdd19a2a825d9e6785902f70d651f9745b0238e29c795c"
+    },
     "reportPdf": {
       "reportNumber": "AL-2026-000005",
       "sha256": "d16931184cf84ed9d4794a890b42c1441fa9c637f73c3f37da151278ca6bea97"

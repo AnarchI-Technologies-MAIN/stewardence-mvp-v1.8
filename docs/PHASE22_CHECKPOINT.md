@@ -16,7 +16,7 @@ Closed:
 Still open:
 
 - Historical assessment retrieval after logout/login.
-- Required verbal/audio explanation recording.
+- Historical assessment retrieval after logout/login is the only remaining Phase 22 gate.
 
 ## Production deployment evidence
 
@@ -57,6 +57,11 @@ The controlled evidence used synthetic registry facts inside a disposable virtua
 - Codec: H.264
 - Resolution: 1920x1080
 - Duration: 167.966667 seconds
+- Narrated video: retained locally as `Stewardence-MVP-Production-Walkthrough-Narrated.mp4`
+- Narrated video SHA-256: 13f36bb086de398d09eddafd1db0fb7551e4526f9ee19b5529d3d9457dcb2ebe
+- Narration audio SHA-256: 659f38a5240c5d5c9f03b7a4db75463d3798435fdfda449ea414c5bd87d5425e
+- Narration script SHA-256: e0a430ce725cfc733acdd19a2a825d9e6785902f70d651f9745b0238e29c795c
+- Narrated stream verification: H.264 video stream and AAC audio stream verified with ffprobe.
 - Source frames: 41 production screenshots
 - Manifest: retained locally as `PRODUCTION_DEMO_MANIFEST.json`
 - Evidence note: retained locally as `PRODUCTION_DEMO_EVIDENCE.md`

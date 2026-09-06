@@ -14,6 +14,10 @@ This public evidence note records sanitized proof that the MVP walkthrough used 
 - Production report number: AL-2026-000005
 - Walkthrough video SHA-256: a3de41efcb6483ab5e89be74d121e3a4694b560aca5feeb5dae39a21d105a60a
 - Walkthrough video metadata: H.264, 1920x1080, 167.966667 seconds.
+- Narrated walkthrough video SHA-256: 13f36bb086de398d09eddafd1db0fb7551e4526f9ee19b5529d3d9457dcb2ebe
+- Narrated walkthrough streams: H.264 video and AAC audio.
+- Narration audio SHA-256: 659f38a5240c5d5c9f03b7a4db75463d3798435fdfda449ea414c5bd87d5425e
+- Narration script SHA-256: e0a430ce725cfc733acdd19a2a825d9e6785902f70d651f9745b0238e29c795c
 - Report PDF SHA-256: d16931184cf84ed9d4794a890b42c1441fa9c637f73c3f37da151278ca6bea97
 - Controlled Collector bundle SHA-256: 3f3b0483299646dc74a7540f1b30a214f795e0be761e48f0f4eb5a2946c0a41f
 - CSV import fixture SHA-256: 1d3df504bfa98502bad34954c55ede2c9d4899d3f5525f5c52cab887747374f3
