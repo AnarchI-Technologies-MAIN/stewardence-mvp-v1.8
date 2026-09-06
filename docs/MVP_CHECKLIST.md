@@ -697,9 +697,11 @@ backup remain open. Evidence: `docs/PHASE20_CHECKPOINT.md`.
 
 ## Phase 21 — Demo data
 
-- [ ] Demo Bookkeeping Company contains the specified realistic manual inventory, including one unknown tool, without implying live connectors.
-- [ ] Demo scenarios cover payroll, banking, external transfer, missing approval, unknown retention, low risk, poor ROI, and strong ROI.
-- [ ] A polished demo assessment and PDF contain at least one genuinely justified Low, Moderate, High, and Critical finding.
+**COMPLETE:** Production evidence is recorded in `docs/PHASE21_CHECKPOINT.md`.
+
+- [x] Demo Bookkeeping Company contains the specified realistic manual inventory, including one unknown tool, without implying live connectors.
+- [x] Demo scenarios cover payroll, banking, external transfer, missing approval, unknown retention, low risk, poor ROI, and strong ROI.
+- [x] A polished demo assessment and PDF contain at least one genuinely justified Low, Moderate, High, and Critical finding.
 
 ## Phase 22 — MVP UX walkthrough
 
