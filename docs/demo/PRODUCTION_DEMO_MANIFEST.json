@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-09-06",
+  "product": "Stewardence MVP v1.8",
+  "publicDisclosure": "sanitized",
+  "repository": {
+    "branch": "main",
+    "commit": "552f66f45ad4a7d6aad75b35e2e7458521a23772",
+    "tree": "3c087bf60622075454d629ede33ffd496d0dcb51",
+    "worktreeCleanAtCapture": true
+  },
+  "productionRuntime": {
+    "servicesVerifiedRunning": [
+      "web",
+      "worker",
+      "renderer",
+      "Postgres"
+    ],
+    "sleepDisabledAtCapture": true,
+    "sensitiveDeploymentDetailsRetainedLocally": true
+  },
+  "artifacts": {
+    "video": {
+      "sha256": "a3de41efcb6483ab5e89be74d121e3a4694b560aca5feeb5dae39a21d105a60a",
+      "codec": "h264",
+      "resolution": "1920x1080",
+      "durationSeconds": 167.966667,
+      "watermark": "DEMONSTRATION ONLY - NO REAL-WORLD TRANSACTIONS - CONTROLLED SCENARIOS - TRUTHFUL ENGINE DISCOVERY"
+    },
+    "reportPdf": {
+      "reportNumber": "AL-2026-000005",
+      "sha256": "d16931184cf84ed9d4794a890b42c1441fa9c637f73c3f37da151278ca6bea97"
+    },
+    "controlledEvidenceBundle": {
+      "sha256": "3f3b0483299646dc74a7540f1b30a214f795e0be761e48f0f4eb5a2946c0a41f"
+    },
+    "csvImportFixture": {
+      "sha256": "1d3df504bfa98502bad34954c55ede2c9d4899d3f5525f5c52cab887747374f3"
+    },
+    "sourceFrames": {
+      "count": 41,
+      "rawFrameHashesRetainedLocally": true
+    }
+  },
+  "truthBoundary": "Production UI behavior was demonstrated with controlled synthetic evidence. This is not a claim of real-world transaction forensics or autonomous theft attribution."
+}
