@@ -18,6 +18,12 @@
     "sleepDisabledAtCapture": true,
     "sensitiveDeploymentDetailsRetainedLocally": true
   },
+  "logoutLoginRetrieval": {
+    "verified": true,
+    "reportNumber": "AL-2026-000005",
+    "temporaryCredentialBridgeFilesDeleted": true,
+    "proofFrameHashesRetainedLocally": true
+  },
   "artifacts": {
     "video": {
       "sha256": "a3de41efcb6483ab5e89be74d121e3a4694b560aca5feeb5dae39a21d105a60a",

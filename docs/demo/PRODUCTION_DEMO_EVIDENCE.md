@@ -34,6 +34,7 @@ This public evidence note records sanitized proof that the MVP walkthrough used 
 - A low-risk ROI path produced monthly net value of $426.00 and ROI of 968.18%.
 - A Critical-risk path produced monthly net value of $-1270.00 and ROI of -94.07%.
 - Browser report AL-2026-000005 and its PDF were generated from the production report flow.
+- Logout/login retrieval was proven by logging out of the disposable account, logging back in, reopening the owner workspace, and retrieving report AL-2026-000005.
 
 ## Truth Boundary
 

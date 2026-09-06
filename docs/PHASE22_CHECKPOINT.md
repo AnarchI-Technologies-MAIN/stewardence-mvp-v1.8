@@ -6,17 +6,23 @@ Production URL: recorded in the local full evidence manifest; public checkpoint 
 
 ## Status
 
-Phase 22 is partially verified, not fully closed.
+Phase 22 is complete.
 
 Closed:
 
 - Production journey through anonymous visitor, signup, organization setup, Collector download page, controlled evidence ingestion, reconciliation, inventory, automatic rule provenance, custom rule creation, assessment snapshot, browser report, PDF download, manual inventory, and CSV import alternative.
 - Under-30-minute first useful assessment gate, proven by the captured walkthrough path and 167.966667 second rendered video.
 
-Still open:
+Logout/login retrieval proof:
 
-- Historical assessment retrieval after logout/login.
-- Historical assessment retrieval after logout/login is the only remaining Phase 22 gate.
+- The disposable walkthrough account password was reset for this controlled account only.
+- The generated credential was stored locally with Windows user-scope encryption.
+- Temporary plaintext and hash bridge files were deleted after use.
+- After logout and login, the owner workspace was reopened and report `AL-2026-000005` was retrieved from production.
+- Local proof frames retained:
+  - `049-login-filled-after-ssh-reset.png` SHA-256 48e753d1aa64e5206b788bf068f71c549148e07acb9353ec98fd8497c58f61fc
+  - `051-workspaces-after-login.png` SHA-256 d1a99b0118f0841577ef20d3cef0d1f2d83427aa11618a56eb1fddf3189db7d2
+  - `053-report-retrieved-after-workspace-restore.png` SHA-256 913f9c739b0d2c6bedf0fa485de72e98371eda66b8769bf29ab86347e9037244
 
 ## Production deployment evidence
 
