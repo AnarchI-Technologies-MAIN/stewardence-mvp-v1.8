@@ -50,4 +50,16 @@ Phase 20 already records PITR active/current, encrypted off-platform logical bac
 
 ## Freeze disposition
 
-Phase 23 is complete, but full freeze remains blocked by the explicit Phase 20 scheduled Railway volume-backup control unless the founder approves the required billing/plan change or amends that specific gate.
+Phase 23 is complete.
+
+On 2026-09-06 America/Chicago, the founder approved an MVP backup amendment:
+Railway scheduled-volume backups are deferred while unavailable on the current
+trial plan and will be enabled after first paying-client revenue funds the
+required Railway plan upgrade. The MVP recovery gate remains satisfied by the
+already-verified active/current PITR, encrypted off-platform custom-format
+logical backup, and successful clean restore drill.
+
+This checkpoint does not claim Railway scheduled-volume backups are enabled.
+
+The remaining freeze work is release accounting: complete the final release
+record, create and verify `v0.1.0`, then close BUILD MODE and enter SELL MODE.

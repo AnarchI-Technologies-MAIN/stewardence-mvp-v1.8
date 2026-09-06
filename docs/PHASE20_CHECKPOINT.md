@@ -1,8 +1,10 @@
 # Phase 20 checkpoint — Railway production deployment
 
-**State:** In progress on 2026-09-05 America/Chicago. Production execution and
-the independent release smoke are verified. Release tagging and one
-plan-dependent backup control remain open.
+**State:** Production and recovery controls verified under the founder-approved
+MVP backup amendment. Final release tagging remains part of the freeze gate.
+Railway scheduled-volume backups are unavailable on the current trial plan and
+are deferred until first paying-client revenue funds the required Railway plan
+upgrade. They are not claimed enabled.
 
 ## Frozen source under test
 
@@ -83,12 +85,33 @@ suite passed 20 tests after the repair.
 - A clean restore drill passed with all 42 migrations, roles, RLS policies,
   grants, and smoke queries verified.
 
-## Remaining Phase 20 gates
+## Founder-approved MVP backup amendment
 
-- Create the release-candidate/final tags only after Phases 21–23 pass on the
-  final commit.
-- Railway scheduled volume backups are unavailable on the current trial plan.
-  Enabling the plan-gated control requires a founder-approved billing change.
+Approved 2026-09-06 America/Chicago.
+
+For the founder-assisted Stewardence MVP on the current Railway trial plan,
+scheduled Railway volume backups are deferred because that provider-specific
+control requires a paid plan. The pre-customer MVP recovery gate is satisfied
+by the controls already proven in this checkpoint:
+
+- point-in-time recovery is active and current;
+- a custom-format logical database backup is encrypted and stored off-platform;
+- the encrypted and decrypted backup artifacts have recorded SHA-256 values;
+- an actual clean restore drill passed with all 42 migrations, database roles,
+  RLS policies, grants, and smoke queries verified.
+
+The founder intends to upgrade Railway and enable scheduled volume backups using
+revenue from the first paying client. Until that upgrade occurs, Stewardence
+must not claim that Railway scheduled volume backups are enabled.
+
+This amendment changes only the provider-specific backup-mechanism requirement.
+It does not waive PITR, encrypted off-platform backup, restore testing, tenant
+isolation, or any other security/recovery requirement.
+
+## Remaining Phase 20 release action
+
+- Create the final `v0.1.0` release tag only after the final release record is
+  complete and the intended frozen commit is verified.
 - No custom domain has been attached. The Railway domain is fully verified and
   is the only current outreach-safe URL. Domain purchase and any DNS/proxy
   change remain separate founder-authorized actions.

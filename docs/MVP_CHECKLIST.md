@@ -676,9 +676,12 @@ preserved byte-for-byte and only lossless crops are used. Production migration
 
 ## Phase 20 — Railway production deployment
 
-**IN PROGRESS:** The production application and its independent release smoke are
-verified on commit `7819b56`. Release tagging and the plan-gated scheduled-volume
-backup remain open. Evidence: `docs/PHASE20_CHECKPOINT.md`.
+**VERIFIED UNDER FOUNDER-APPROVED MVP BACKUP AMENDMENT:** Production deployment,
+release smoke, PITR, encrypted off-platform logical backup, and a clean restore
+drill are verified. Railway scheduled-volume backups are unavailable on the
+current trial plan and are deferred until first paying-client revenue funds the
+required Railway plan upgrade. This amendment does not claim scheduled Railway
+volume backups are enabled. Evidence: `docs/PHASE20_CHECKPOINT.md`.
 
 - [ ] 20.1: The owner-approved public GitHub repository exists, `main` is protected from force pushes, release candidates are tagged, and no secrets are committed. Repository visibility was explicitly changed by the founder.
 - [x] 20.2: The Railway project and production environment exist with Railway PostgreSQL and no public database TCP proxy.
@@ -690,7 +693,7 @@ backup remain open. Evidence: `docs/PHASE20_CHECKPOINT.md`.
 - [x] 20.8: Production variables are present in Railway, secrets are not committed or copied into `.env`, and `.env.example` contains names only.
 - [x] 20.9: Owner-credential migrations run only in a bounded migration operation, before incompatible code, using expand/contract compatibility.
 - [x] 20.10: The Railway domain is fully verified before an approved custom domain is attached; customer outreach never uses a local address.
-- [ ] 20.11: Scheduled volume backups and PITR are enabled as approved, a custom-format logical dump is encrypted off-platform, and an actual clean restore drill passes before customer data.
+- [x] 20.11: Under the founder-approved MVP backup amendment, active/current PITR, an encrypted off-platform custom-format logical dump, and an actual clean restore drill are required before customer data. Railway scheduled-volume backups are unavailable on the current trial plan and are deferred until first paying-client revenue funds the required plan upgrade; they are not claimed enabled.
 - [x] 20.12: A smoke test from an unrelated network verifies HTTPS, login, workspace, inventory, CSV, assessment, ROI, rule builder, browser/PDF reports, logout/login, authorized download, and cross-tenant isolation.
 - [x] Production availability has no dependency on the founder's computer, WSL2, router, home Internet, or personal availability; Caddy is not deployed.
 - [x] Railway deployment IDs are recorded as release evidence.
@@ -767,9 +770,9 @@ The Collector observes bounded evidence; the existing cloud application interpre
 
 ## Freeze gate
 
-- [ ] Phases 19A–19D and original Phases 20–23 are verified under the amended scope. Deterministic sensing and automatic applicable rule creation are the final substantive MVP additions; after acceptance, product feature work stops.
+- [x] Phases 19A–19D and original Phases 20–23 are verified under the amended scope, including the founder-approved MVP backup amendment. Deterministic sensing and automatic applicable rule creation are the final substantive MVP additions; after acceptance, product feature work stops.
 
-- [ ] All Phase 23 items and every Sellable MVP acceptance-matrix item are verified with durable evidence.
+- [x] All Phase 23 items and every Sellable MVP acceptance-matrix item are verified with durable evidence.
 - [ ] Git tag `v0.1.0` identifies the frozen release.
 - [ ] The release record contains commit hash, migration head, dependency-lock hash, Railway deployment IDs, and date.
 - [ ] Development has stopped except for defects that prevent security, correctness, onboarding, assessment, reporting, payment, or customer use.
