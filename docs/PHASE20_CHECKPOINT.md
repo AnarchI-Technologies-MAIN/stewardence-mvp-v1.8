@@ -115,3 +115,18 @@ isolation, or any other security/recovery requirement.
 - No custom domain has been attached. The Railway domain is fully verified and
   is the only current outreach-safe URL. Domain purchase and any DNS/proxy
   change remain separate founder-authorized actions.
+## Final v0.1.0 release closeout
+
+Verified 2026-09-06 America/Chicago after the release tag existed remotely.
+
+- Release tag: 0.1.0
+- Annotated tag object: $tagObject
+- Frozen release commit: $releaseCommit
+- Remote main matched the frozen release commit before administrative closeout.
+- The annotated tag peeled exactly to the frozen release commit.
+- The release-accounting commit contains only release/checkpoint documentation above the already-tested runtime lineage.
+- No substantive MVP feature work remains authorized.
+- Post-freeze code changes are limited to defects preventing security, correctness, onboarding, assessment, reporting, payment, or customer use.
+- BUILD MODE is closed.
+- SELL MODE is active.
+- The next task is customer validation.

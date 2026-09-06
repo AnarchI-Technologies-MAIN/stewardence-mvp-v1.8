@@ -683,7 +683,7 @@ current trial plan and are deferred until first paying-client revenue funds the
 required Railway plan upgrade. This amendment does not claim scheduled Railway
 volume backups are enabled. Evidence: `docs/PHASE20_CHECKPOINT.md`.
 
-- [ ] 20.1: The owner-approved public GitHub repository exists, `main` is protected from force pushes, release candidates are tagged, and no secrets are committed. Repository visibility was explicitly changed by the founder.
+- [x] 20.1: The owner-approved public GitHub repository exists, `main` is protected from force pushes, release candidates are tagged, and no secrets are committed. Repository visibility was explicitly changed by the founder.
 - [x] 20.2: The Railway project and production environment exist with Railway PostgreSQL and no public database TCP proxy.
 - [x] 20.3: Separate owner/app/worker database credentials are provisioned; long-running web and worker services never receive owner credentials.
 - [x] 20.4: `web` is the only publicly reachable application service, binds Gunicorn to Railway's injected port, and uses `/readyz` as deployment healthcheck.
@@ -774,7 +774,7 @@ The Collector observes bounded evidence; the existing cloud application interpre
 
 - [x] All Phase 23 items and every Sellable MVP acceptance-matrix item are verified with durable evidence.
 - [ ] Git tag `v0.1.0` identifies the frozen release.
-- [ ] The release record contains commit hash, migration head, dependency-lock hash, Railway deployment IDs, and date.
+- [x] The release record contains commit hash, migration head, dependency-lock hash, Railway deployment IDs, and date.
 - [ ] Development has stopped except for defects that prevent security, correctness, onboarding, assessment, reporting, payment, or customer use.
 - [ ] The project has switched from BUILD MODE to SELL MODE.
 
