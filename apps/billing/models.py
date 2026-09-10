@@ -117,3 +117,84 @@ class Subscription(models.Model):
             self.Status.ACTIVE,
             self.Status.CANCELING,
         }
+
+
+class StripeWebhookEvent(models.Model):
+    """Committed receipt for one successfully processed Stripe event."""
+
+    stripe_event_id = models.CharField(
+        max_length=255,
+        unique=True,
+    )
+    event_type = models.CharField(
+        max_length=255,
+    )
+    processed_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        ordering = ("processed_at", "stripe_event_id")
+
+    def __str__(self):
+        return f"{self.event_type}: {self.stripe_event_id}"
+
+
+class FounderSlot(models.Model):
+    """One of the finite founder-price allocation slots."""
+
+    sequence = models.PositiveSmallIntegerField(
+        primary_key=True,
+    )
+
+    billing_customer = models.OneToOneField(
+        BillingCustomer,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="founder_slot",
+    )
+
+    reservation_token = models.UUIDField(
+        null=True,
+        blank=True,
+        unique=True,
+        editable=False,
+    )
+
+    stripe_checkout_session_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        unique=True,
+    )
+
+    reserved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    checkout_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    claimed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        ordering = ("sequence",)
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    models.Q(sequence__gte=1)
+                    & models.Q(sequence__lte=20)
+                ),
+                name="billing_founder_slot_sequence_1_20",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Founder slot {self.sequence}"

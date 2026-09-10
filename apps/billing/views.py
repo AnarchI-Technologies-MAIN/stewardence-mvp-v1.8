@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import stripe
 from django.conf import settings
+from django.db import transaction
 from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -10,7 +11,14 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .catalog import FOUNDER_LIMIT, PORTFOLIOS
-from .models import BillingCustomer, Subscription
+from .founder_slots import (
+    attach_founder_checkout_session,
+    claim_founder_slot,
+    release_expired_founder_checkout,
+    release_founder_reservation,
+    reserve_founder_slot,
+)
+from .models import BillingCustomer, StripeWebhookEvent, Subscription
 
 
 def _stripe_client() -> None:
@@ -68,19 +76,6 @@ def start_core_checkout(request):
         user=request.user,
     )
 
-    founder_offer_active = (
-        Subscription.objects.filter(is_founder=True).count()
-        < FOUNDER_LIMIT
-    )
-
-    price_id = settings.STRIPE_CORE_STANDARD_PRICE_ID
-
-    if founder_offer_active:
-        price_id = settings.STRIPE_CORE_FOUNDER_INTRO_PRICE_ID
-
-    if not price_id:
-        raise RuntimeError("The selected Stripe price is not configured.")
-
     if billing_customer.stripe_customer_id:
         stripe_customer_id = billing_customer.stripe_customer_id
     else:
@@ -100,6 +95,43 @@ def start_core_checkout(request):
             ]
         )
 
+    founder_slot = reserve_founder_slot(
+        billing_customer_id=billing_customer.id,
+    )
+
+    price_id = settings.STRIPE_CORE_STANDARD_PRICE_ID
+
+    metadata = {
+        "stewardence_user_id": str(request.user.id),
+        "portfolio": Subscription.Portfolio.CORE,
+    }
+
+    if founder_slot is not None:
+        price_id = settings.STRIPE_CORE_FOUNDER_INTRO_PRICE_ID
+
+        metadata.update(
+            {
+                "founder_slot_sequence": str(
+                    founder_slot.sequence
+                ),
+                "founder_reservation_token": str(
+                    founder_slot.reservation_token
+                ),
+            }
+        )
+
+    if not price_id:
+        if founder_slot is not None:
+            release_founder_reservation(
+                slot_sequence=founder_slot.sequence,
+                reservation_token=founder_slot.reservation_token,
+                billing_customer_id=billing_customer.id,
+            )
+
+        raise RuntimeError(
+            "The selected Stripe price is not configured."
+        )
+
     success_url = request.build_absolute_uri(
         reverse("billing:checkout-success")
     )
@@ -108,35 +140,65 @@ def start_core_checkout(request):
         reverse("billing:portfolio")
     )
 
-    session = stripe.checkout.Session.create(
-        mode="subscription",
-        customer=stripe_customer_id,
-        client_reference_id=str(request.user.id),
-        line_items=[
+    checkout_kwargs = {
+        "mode": "subscription",
+        "customer": stripe_customer_id,
+        "client_reference_id": str(request.user.id),
+        "line_items": [
             {
                 "price": price_id,
                 "quantity": 1,
             }
         ],
-        success_url=f"{success_url}?session_id={{CHECKOUT_SESSION_ID}}",
-        cancel_url=cancel_url,
-        metadata={
-            "stewardence_user_id": str(request.user.id),
-            "portfolio": Subscription.Portfolio.CORE,
-            "founder_candidate": (
-                "true" if founder_offer_active else "false"
-            ),
+        "success_url": (
+            f"{success_url}?session_id={{CHECKOUT_SESSION_ID}}"
+        ),
+        "cancel_url": cancel_url,
+        "metadata": metadata,
+        "subscription_data": {
+            "metadata": metadata,
         },
-        subscription_data={
-            "metadata": {
-                "stewardence_user_id": str(request.user.id),
-                "portfolio": Subscription.Portfolio.CORE,
-                "founder_candidate": (
-                    "true" if founder_offer_active else "false"
-                ),
-            },
-        },
-    )
+    }
+
+    if founder_slot is not None:
+        checkout_kwargs["expires_at"] = int(
+            founder_slot.checkout_expires_at.timestamp()
+        )
+
+    try:
+        session = stripe.checkout.Session.create(
+            **checkout_kwargs
+        )
+    except Exception:
+        if founder_slot is not None:
+            release_founder_reservation(
+                slot_sequence=founder_slot.sequence,
+                reservation_token=founder_slot.reservation_token,
+                billing_customer_id=billing_customer.id,
+            )
+
+        raise
+
+    if founder_slot is not None:
+        attached = attach_founder_checkout_session(
+            slot_sequence=founder_slot.sequence,
+            reservation_token=founder_slot.reservation_token,
+            billing_customer_id=billing_customer.id,
+            stripe_checkout_session_id=session.id,
+            checkout_expires_at=founder_slot.checkout_expires_at,
+        )
+
+        if not attached:
+            release_founder_reservation(
+                slot_sequence=founder_slot.sequence,
+                reservation_token=founder_slot.reservation_token,
+                billing_customer_id=billing_customer.id,
+            )
+
+            raise RuntimeError(
+                "Founder checkout reservation changed before "
+                "Stripe session binding completed."
+            )
 
     return redirect(session.url)
 
@@ -170,23 +232,42 @@ def stripe_webhook(request: HttpRequest) -> HttpResponse:
     except (ValueError, stripe.error.SignatureVerificationError):
         return HttpResponse(status=400)
 
-    event_type = event["type"]
+    event_id = event.get("id")
+    event_type = event.get("type")
+
+    if not event_id or not event_type:
+        return HttpResponse(status=400)
+
     obj = event["data"]["object"]
 
-    if event_type == "checkout.session.completed":
-        _handle_checkout_completed(obj)
+    with transaction.atomic():
+        _receipt, created = StripeWebhookEvent.objects.get_or_create(
+            stripe_event_id=event_id,
+            defaults={
+                "event_type": event_type,
+            },
+        )
 
-    if event_type == "customer.subscription.updated":
-        _handle_subscription_updated(obj)
+        if not created:
+            return HttpResponse(status=200)
 
-    if event_type == "customer.subscription.deleted":
-        _handle_subscription_deleted(obj)
+        if event_type == "checkout.session.completed":
+            _handle_checkout_completed(obj)
 
-    if event_type == "invoice.paid":
-        _handle_invoice_paid(obj)
+        if event_type == "checkout.session.expired":
+            _handle_checkout_expired(obj)
 
-    if event_type == "invoice.payment_failed":
-        _handle_invoice_payment_failed(obj)
+        if event_type == "customer.subscription.updated":
+            _handle_subscription_updated(obj)
+
+        if event_type == "customer.subscription.deleted":
+            _handle_subscription_deleted(obj)
+
+        if event_type == "invoice.paid":
+            _handle_invoice_paid(obj)
+
+        if event_type == "invoice.payment_failed":
+            _handle_invoice_payment_failed(obj)
 
     return HttpResponse(status=200)
 
@@ -201,9 +282,7 @@ def _handle_checkout_completed(session) -> None:
     if billing_customer is None:
         return
 
-    founder_candidate = (
-        session.get("metadata", {}).get("founder_candidate") == "true"
-    )
+    metadata = session.get("metadata", {})
 
     subscription, _ = Subscription.objects.get_or_create(
         billing_customer=billing_customer,
@@ -212,23 +291,78 @@ def _handle_checkout_completed(session) -> None:
         },
     )
 
-    subscription.stripe_subscription_id = session.get("subscription")
+    subscription.stripe_subscription_id = session.get(
+        "subscription"
+    )
     subscription.status = Subscription.Status.ACTIVE
 
-    if founder_candidate and not subscription.is_founder:
-        next_sequence = (
-            Subscription.objects.filter(is_founder=True).count() + 1
+    founder_slot = None
+
+    slot_sequence = metadata.get("founder_slot_sequence")
+    reservation_token = metadata.get(
+        "founder_reservation_token"
+    )
+
+    if slot_sequence and reservation_token:
+        try:
+            slot_sequence = int(slot_sequence)
+        except (TypeError, ValueError):
+            slot_sequence = None
+
+    if slot_sequence and reservation_token:
+        founder_slot = claim_founder_slot(
+            slot_sequence=slot_sequence,
+            reservation_token=reservation_token,
+            billing_customer_id=billing_customer.id,
+            stripe_checkout_session_id=session.get("id"),
         )
 
-        if next_sequence <= FOUNDER_LIMIT:
-            subscription.is_founder = True
-            subscription.founder_sequence = next_sequence
-            subscription.current_price_cents = 4900
+    if founder_slot is not None:
+        subscription.is_founder = True
+        subscription.founder_sequence = founder_slot.sequence
+        subscription.current_price_cents = PORTFOLIOS[
+            "core"
+        ]["founder_intro_cents"]
 
-    if not subscription.is_founder:
-        subscription.current_price_cents = 9900
+    if founder_slot is None and not subscription.is_founder:
+        subscription.current_price_cents = PORTFOLIOS[
+            "core"
+        ]["standard_cents"]
 
     subscription.save()
+
+
+def _handle_checkout_expired(session) -> None:
+    user_id = session.get("client_reference_id")
+
+    billing_customer = BillingCustomer.objects.filter(
+        user_id=user_id,
+    ).first()
+
+    if billing_customer is None:
+        return
+
+    metadata = session.get("metadata", {})
+
+    slot_sequence = metadata.get("founder_slot_sequence")
+    reservation_token = metadata.get(
+        "founder_reservation_token"
+    )
+
+    if not slot_sequence or not reservation_token:
+        return
+
+    try:
+        slot_sequence = int(slot_sequence)
+    except (TypeError, ValueError):
+        return
+
+    release_expired_founder_checkout(
+        slot_sequence=slot_sequence,
+        reservation_token=reservation_token,
+        billing_customer_id=billing_customer.id,
+        stripe_checkout_session_id=session.get("id"),
+    )
 
 
 def _handle_subscription_updated(stripe_subscription) -> None:
