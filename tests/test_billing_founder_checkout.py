@@ -216,7 +216,9 @@ def test_checkout_without_available_slot_uses_standard_price(
     )
 
 
-def test_matching_completed_checkout_claims_founder_slot():
+def test_matching_completed_checkout_claims_founder_slot(
+    monkeypatch,
+):
     user = make_user("claim-founder@example.com")
     customer = BillingCustomer.objects.create(user=user)
 
@@ -233,6 +235,26 @@ def test_matching_completed_checkout_claims_founder_slot():
     )
 
     assert attached is True
+
+    schedule_calls = []
+
+    def fake_schedule(*, subscription):
+        schedule_calls.append(
+            {
+                "subscription_id": subscription.stripe_subscription_id,
+                "founder_sequence": subscription.founder_sequence,
+            }
+        )
+
+        return {
+            "schedule_id": "sub_sched_test_founder",
+            "intro_ends_at": slot.checkout_expires_at,
+        }
+
+    monkeypatch.setattr(
+        "apps.billing.views.ensure_founder_subscription_schedule",
+        fake_schedule,
+    )
 
     session = fake_session(
         session_id="cs_claim",
@@ -251,6 +273,23 @@ def test_matching_completed_checkout_claims_founder_slot():
     assert subscription.founder_sequence == slot.sequence
     assert subscription.current_price_cents == 4900
 
+    assert (
+        subscription.stripe_schedule_id
+        == "sub_sched_test_founder"
+    )
+
+    assert (
+        subscription.founder_intro_ends_at
+        == slot.checkout_expires_at
+    )
+
+    assert schedule_calls == [
+        {
+            "subscription_id": "sub_test",
+            "founder_sequence": slot.sequence,
+        }
+    ]
+
     slot.refresh_from_db()
 
     assert slot.claimed_at is not None
@@ -260,50 +299,48 @@ def test_stale_reservation_token_cannot_claim_founder_slot():
     user = make_user("stale-founder@example.com")
     customer = BillingCustomer.objects.create(user=user)
 
-    first = reserve_founder_slot(
-        billing_customer_id=customer.id
-    )
-
-    stale_sequence = first.sequence
-    stale_token = first.reservation_token
-
-    second = reserve_founder_slot(
+    slot = reserve_founder_slot(
         billing_customer_id=customer.id
     )
 
     attached = attach_founder_checkout_session(
-        slot_sequence=second.sequence,
-        reservation_token=second.reservation_token,
+        slot_sequence=slot.sequence,
+        reservation_token=slot.reservation_token,
         billing_customer_id=customer.id,
-        stripe_checkout_session_id="cs_new",
-        checkout_expires_at=second.checkout_expires_at,
+        stripe_checkout_session_id="cs_authoritative",
+        checkout_expires_at=slot.checkout_expires_at,
     )
 
     assert attached is True
-    assert second.sequence == stale_sequence
-    assert second.reservation_token != stale_token
 
-    stale = fake_session(
-        session_id="cs_old",
+    stale_session = fake_session(
+        session_id="cs_stale",
         user_id=user.id,
-        sequence=stale_sequence,
-        token=stale_token,
-        subscription_id="sub_old",
+        sequence=slot.sequence,
+        token=slot.reservation_token,
     )
 
-    _handle_checkout_completed(stale)
+    with pytest.raises(
+        RuntimeError,
+        match="could not prove its authoritative reservation",
+    ):
+        _handle_checkout_completed(stale_session)
 
-    subscription = Subscription.objects.get(
-        billing_customer=customer
+    assert (
+        Subscription.objects.filter(
+            billing_customer=customer
+        ).exists()
+        is False
     )
 
-    assert subscription.is_founder is False
-    assert subscription.founder_sequence is None
-    assert subscription.current_price_cents == 9900
+    slot.refresh_from_db()
 
-    second.refresh_from_db()
+    assert (
+        slot.stripe_checkout_session_id
+        == "cs_authoritative"
+    )
 
-    assert second.claimed_at is None
+    assert slot.claimed_at is None
 
 
 def test_matching_expired_checkout_releases_slot():

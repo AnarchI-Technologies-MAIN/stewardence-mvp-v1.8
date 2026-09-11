@@ -50,9 +50,13 @@ def reserve_founder_slot(
     """
     Atomically reserve one of the finite founder slots.
 
-    A new reservation generation token is minted for every checkout
-    attempt. Reusing the same customer's unclaimed slot therefore
-    invalidates older checkout attempts without consuming another slot.
+    An existing customer's unclaimed reservation remains the same
+    generation while it is still live or owns a Stripe Checkout
+    session.
+
+    Multiple checkout requests for that customer therefore converge on
+    the same reservation token and, through Stripe idempotency, the same
+    external Checkout Session.
     """
     with transaction.atomic(using=using):
         _ensure_founder_slots(using=using)
@@ -71,6 +75,16 @@ def reserve_founder_slot(
 
             if slot.claimed_at is not None:
                 return None
+
+            if slot.stripe_checkout_session_id is not None:
+                return slot
+
+            if (
+                slot.reservation_token is not None
+                and slot.checkout_expires_at is not None
+                and slot.checkout_expires_at > now
+            ):
+                return slot
 
             slot.reservation_token = uuid.uuid4()
             slot.stripe_checkout_session_id = None
@@ -129,8 +143,11 @@ def attach_founder_checkout_session(
     using="default",
 ):
     """
-    Bind the Stripe Checkout session to exactly the reservation
-    generation that created it.
+    Bind exactly one Stripe Checkout Session to the reservation.
+
+    First attachment wins. Reattaching the same Stripe Session is
+    idempotent. A different Session can never replace the authoritative
+    one.
     """
     with transaction.atomic(using=using):
         slot = (
@@ -151,6 +168,12 @@ def attach_founder_checkout_session(
 
         if slot.claimed_at is not None:
             return False
+
+        if slot.stripe_checkout_session_id is not None:
+            return (
+                slot.stripe_checkout_session_id
+                == stripe_checkout_session_id
+            )
 
         slot.stripe_checkout_session_id = stripe_checkout_session_id
         slot.checkout_expires_at = checkout_expires_at
@@ -263,6 +286,48 @@ def claim_founder_slot(
             )
 
         return slot
+
+
+def release_unattached_founder_reservation(
+    *,
+    slot_sequence,
+    reservation_token,
+    billing_customer_id,
+    using="default",
+):
+    """
+    Release only a reservation that has no authoritative Stripe
+    Checkout Session.
+
+    A failed concurrent request therefore cannot erase a winner that
+    attached between reservation and cleanup.
+    """
+    with transaction.atomic(using=using):
+        slot = (
+            FounderSlot.objects.using(using)
+            .select_for_update()
+            .filter(sequence=slot_sequence)
+            .first()
+        )
+
+        if slot is None:
+            return False
+
+        if slot.billing_customer_id != billing_customer_id:
+            return False
+
+        if str(slot.reservation_token) != str(reservation_token):
+            return False
+
+        if slot.claimed_at is not None:
+            return False
+
+        if slot.stripe_checkout_session_id is not None:
+            return False
+
+        _reset_reservation(slot, using=using)
+
+        return True
 
 
 def release_expired_founder_checkout(
