@@ -95,6 +95,11 @@ def test_checkout_creation_uses_reservation_idempotency_key(
     monkeypatch,
     settings,
 ):
+    monkeypatch.setattr(
+        "apps.billing.views.settings.STRIPE_SECRET_KEY",
+        "sk_test_stewardence_unit_only",
+    )
+
     user = make_user("checkout-idempotency@example.com")
 
     BillingCustomer.objects.create(
@@ -149,6 +154,11 @@ def test_repeat_checkout_reuses_open_session(
     client,
     monkeypatch,
 ):
+    monkeypatch.setattr(
+        "apps.billing.views.settings.STRIPE_SECRET_KEY",
+        "sk_test_stewardence_unit_only",
+    )
+
     user = make_user("reuse-session@example.com")
 
     customer = BillingCustomer.objects.create(

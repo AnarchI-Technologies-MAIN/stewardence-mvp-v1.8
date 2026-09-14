@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone as dt_timezone
+
 import stripe
 from django.conf import settings
 from django.db import transaction
@@ -23,6 +25,8 @@ from .models import BillingCustomer, StripeWebhookEvent, Subscription
 from .stripe_schedules import (
     ensure_founder_subscription_schedule,
     price_cents_from_stripe_subscription,
+    schedule_founder_cancellation_at_period_end,
+    undo_founder_cancellation,
 )
 
 
@@ -272,6 +276,232 @@ def start_core_checkout(request):
 
 
 @login_required
+def billing_portal(request):
+    _stripe_client()
+
+    billing_customer = BillingCustomer.objects.filter(
+        user=request.user,
+    ).first()
+
+    if (
+        billing_customer is None
+        or not billing_customer.stripe_customer_id
+    ):
+        raise RuntimeError(
+            "No Stripe billing customer exists for this account."
+        )
+
+    subscription = _subscription_for_user(
+        request.user.id
+    )
+
+    configuration_id = (
+        settings.STRIPE_BILLING_PORTAL_CONFIGURATION_ID
+    )
+
+    if (
+        subscription is not None
+        and subscription.is_founder
+        and subscription.grants_access
+    ):
+        configuration_id = (
+            settings.
+            STRIPE_BILLING_PORTAL_FOUNDER_CONFIGURATION_ID
+        )
+
+    if not configuration_id:
+        raise RuntimeError(
+            "The required Stripe Billing Portal "
+            "configuration is not configured."
+        )
+
+    return_url = request.build_absolute_uri(
+        reverse("organizations:workspace-selection")
+    )
+
+    portal_session = (
+        stripe.billing_portal.Session.create(
+            customer=(
+                billing_customer.stripe_customer_id
+            ),
+            configuration=configuration_id,
+            return_url=return_url,
+        )
+    )
+
+    if not portal_session.url:
+        raise RuntimeError(
+            "Stripe Billing Portal returned no URL."
+        )
+
+    return redirect(
+        portal_session.url
+    )
+
+
+@login_required
+@require_POST
+def founder_cancel(request):
+    _stripe_client()
+
+    subscription = _subscription_for_user(
+        request.user.id
+    )
+
+    if subscription is None:
+        raise RuntimeError(
+            "No Stewardence subscription exists."
+        )
+
+    if not subscription.is_founder:
+        raise RuntimeError(
+            "Founder cancellation requires "
+            "active founder entitlement."
+        )
+
+    if not subscription.grants_access:
+        raise RuntimeError(
+            "Founder subscription is not active."
+        )
+
+    result = (
+        schedule_founder_cancellation_at_period_end(
+            subscription=subscription,
+        )
+    )
+
+    subscription.status = (
+        Subscription.Status.CANCELING
+    )
+
+    subscription.cancel_at_period_end = True
+
+    period_end = result.get(
+        "current_period_end"
+    )
+
+    update_fields = [
+        "status",
+        "cancel_at_period_end",
+        "updated_at",
+    ]
+
+    if period_end is not None:
+        subscription.current_period_end = (
+            period_end
+        )
+
+        update_fields.append(
+            "current_period_end"
+        )
+
+    subscription.save(
+        update_fields=update_fields
+    )
+
+    return redirect(
+        "organizations:workspace-selection"
+    )
+
+
+@login_required
+@require_POST
+def founder_cancel_undo(request):
+    _stripe_client()
+
+    subscription = _subscription_for_user(
+        request.user.id
+    )
+
+    if subscription is None:
+        raise RuntimeError(
+            "No Stewardence subscription exists."
+        )
+
+    undo_founder_cancellation(
+        subscription=subscription,
+    )
+
+    subscription.status = (
+        Subscription.Status.ACTIVE
+    )
+
+    subscription.cancel_at_period_end = False
+
+    subscription.save(
+        update_fields=[
+            "status",
+            "cancel_at_period_end",
+            "updated_at",
+        ]
+    )
+
+    return redirect(
+        "organizations:workspace-selection"
+    )
+
+
+@login_required
+def billing_account(request):
+    subscription = _subscription_for_user(
+        request.user.id
+    )
+
+    billing_customer = (
+        BillingCustomer.objects.filter(
+            user=request.user,
+        ).first()
+    )
+
+    can_manage_billing = bool(
+        billing_customer is not None
+        and billing_customer.stripe_customer_id
+    )
+
+    founder_cancel_pending = bool(
+        subscription is not None
+        and subscription.is_founder
+        and subscription.grants_access
+        and subscription.status
+        == Subscription.Status.CANCELING
+        and subscription.cancel_at_period_end
+    )
+
+    founder_can_cancel = bool(
+        subscription is not None
+        and subscription.is_founder
+        and subscription.grants_access
+        and not founder_cancel_pending
+    )
+
+    monthly_price_display = None
+
+    if (
+        subscription is not None
+        and subscription.current_price_cents
+        is not None
+    ):
+        monthly_price_display = (
+            f"${subscription.current_price_cents / 100:.2f}"
+        )
+
+    return render(
+        request,
+        "billing/account.html",
+        {
+            "subscription": subscription,
+            "can_manage_billing": can_manage_billing,
+            "founder_cancel_pending": (
+                founder_cancel_pending
+            ),
+            "founder_can_cancel": founder_can_cancel,
+            "monthly_price_display": (
+                monthly_price_display
+            ),
+        },
+    )
+
+
 def checkout_success(request):
     subscription = _subscription_for_user(request.user.id)
 
@@ -327,6 +557,13 @@ def stripe_webhook(request: HttpRequest) -> HttpResponse:
 
         if event_type == "customer.subscription.updated":
             _handle_subscription_updated(obj)
+
+        if event_type in {
+            "subscription_schedule.updated",
+            "subscription_schedule.completed",
+            "subscription_schedule.released",
+        }:
+            _handle_subscription_schedule_event(obj)
 
         if event_type == "customer.subscription.deleted":
             _handle_subscription_deleted(obj)
@@ -430,6 +667,10 @@ def _handle_checkout_completed(session) -> None:
             "core"
         ]["standard_cents"]
 
+        subscription.is_founder = False
+        subscription.stripe_schedule_id = None
+        subscription.founder_intro_ends_at = None
+
     subscription.save()
 
 
@@ -466,6 +707,42 @@ def _handle_checkout_expired(session) -> None:
     )
 
 
+def _stripe_current_period_end(
+    stripe_subscription,
+):
+    """
+    Return Stripe's authoritative paid-period end.
+
+    Prefer the subscription-level field. Fall back to the first
+    subscription item for API shapes where period boundaries are
+    represented there.
+    """
+    timestamp = stripe_subscription.get(
+        "current_period_end"
+    )
+
+    if timestamp is None:
+        items = stripe_subscription.get(
+            "items",
+            {},
+        )
+
+        data = items.get("data", [])
+
+        if data:
+            timestamp = data[0].get(
+                "current_period_end"
+            )
+
+    if timestamp is None:
+        return None
+
+    return datetime.fromtimestamp(
+        int(timestamp),
+        tz=dt_timezone.utc,
+    )
+
+
 def _handle_subscription_updated(stripe_subscription) -> None:
     subscription = Subscription.objects.filter(
         stripe_subscription_id=stripe_subscription["id"],
@@ -474,7 +751,10 @@ def _handle_subscription_updated(stripe_subscription) -> None:
     if subscription is None:
         return
 
-    stripe_status = stripe_subscription.get("status", "")
+    stripe_status = stripe_subscription.get(
+        "status",
+        "",
+    )
 
     status_map = {
         "active": Subscription.Status.ACTIVE,
@@ -483,22 +763,184 @@ def _handle_subscription_updated(stripe_subscription) -> None:
         "canceled": Subscription.Status.CANCELED,
     }
 
-    mapped = status_map.get(stripe_status)
+    mapped = status_map.get(
+        stripe_status
+    )
+
+    founder_normalized_cancel = bool(
+        subscription.is_founder
+        and subscription.status
+        == Subscription.Status.CANCELING
+    )
 
     if mapped:
         subscription.status = mapped
 
-    subscription.cancel_at_period_end = bool(
-        stripe_subscription.get("cancel_at_period_end")
+    stripe_cancel_at_period_end = bool(
+        stripe_subscription.get(
+            "cancel_at_period_end"
+        )
+    )
+
+    if founder_normalized_cancel:
+        subscription.status = (
+            Subscription.Status.CANCELING
+        )
+
+        subscription.cancel_at_period_end = True
+
+    if not founder_normalized_cancel:
+        subscription.cancel_at_period_end = (
+            stripe_cancel_at_period_end
+        )
+
+        if (
+            subscription.status
+            == Subscription.Status.ACTIVE
+            and subscription.cancel_at_period_end
+        ):
+            subscription.status = (
+                Subscription.Status.CANCELING
+            )
+
+    period_end = _stripe_current_period_end(
+        stripe_subscription
+    )
+
+    stripe_price_cents = (
+        price_cents_from_stripe_subscription(
+            stripe_subscription
+        )
+    )
+
+    update_fields = [
+        "status",
+        "cancel_at_period_end",
+        "updated_at",
+    ]
+
+    if period_end is not None:
+        subscription.current_period_end = (
+            period_end
+        )
+
+        update_fields.append(
+            "current_period_end"
+        )
+
+    if stripe_price_cents is not None:
+        subscription.current_price_cents = (
+            stripe_price_cents
+        )
+
+        update_fields.append(
+            "current_price_cents"
+        )
+
+    stripe_schedule_id = (
+        stripe_subscription.get(
+            "schedule"
+        )
+    )
+
+    if stripe_schedule_id:
+        subscription.stripe_schedule_id = (
+            stripe_schedule_id
+        )
+
+        update_fields.append(
+            "stripe_schedule_id"
+        )
+
+    subscription.save(
+        update_fields=update_fields
+    )
+
+
+def _handle_subscription_schedule_event(
+    stripe_schedule,
+) -> None:
+    schedule_id = stripe_schedule.get("id")
+
+    if not schedule_id:
+        return
+
+    subscription = Subscription.objects.filter(
+        stripe_schedule_id=schedule_id,
+    ).first()
+
+    if subscription is None:
+        return
+
+    if not subscription.is_founder:
+        return
+
+    schedule_status = stripe_schedule.get(
+        "status",
+        "",
+    )
+
+    end_behavior = stripe_schedule.get(
+        "end_behavior",
+        "",
     )
 
     if (
-        subscription.status == Subscription.Status.ACTIVE
-        and subscription.cancel_at_period_end
+        schedule_status == "active"
+        and end_behavior == "cancel"
     ):
-        subscription.status = Subscription.Status.CANCELING
+        subscription.status = (
+            Subscription.Status.CANCELING
+        )
 
-    stripe_price_cents = price_cents_from_stripe_subscription(
+        subscription.cancel_at_period_end = True
+
+        subscription.save(
+            update_fields=[
+                "status",
+                "cancel_at_period_end",
+                "updated_at",
+            ]
+        )
+
+        return
+
+    if (
+        schedule_status == "active"
+        and end_behavior == "release"
+        and subscription.status
+        == Subscription.Status.CANCELING
+    ):
+        subscription.status = (
+            Subscription.Status.ACTIVE
+        )
+
+        subscription.cancel_at_period_end = False
+
+        subscription.save(
+            update_fields=[
+                "status",
+                "cancel_at_period_end",
+                "updated_at",
+            ]
+        )
+
+
+def _handle_subscription_deleted(stripe_subscription) -> None:
+    subscription = Subscription.objects.filter(
+        stripe_subscription_id=stripe_subscription["id"],
+    ).first()
+
+    if subscription is None:
+        return
+
+    subscription.status = (
+        Subscription.Status.CANCELED
+    )
+
+    subscription.cancel_at_period_end = False
+
+    period_end = _stripe_current_period_end(
         stripe_subscription
     )
 
@@ -508,27 +950,34 @@ def _handle_subscription_updated(stripe_subscription) -> None:
         "updated_at",
     ]
 
-    if stripe_price_cents is not None:
-        subscription.current_price_cents = stripe_price_cents
-        update_fields.append("current_price_cents")
+    if period_end is not None:
+        subscription.current_period_end = (
+            period_end
+        )
 
-    stripe_schedule_id = stripe_subscription.get("schedule")
+        update_fields.append(
+            "current_period_end"
+        )
 
-    if stripe_schedule_id:
-        subscription.stripe_schedule_id = stripe_schedule_id
-        update_fields.append("stripe_schedule_id")
+    if (
+        subscription.is_founder
+        and subscription.founder_entitlement_ends_on_cancel
+    ):
+        subscription.is_founder = False
+
+        subscription.stripe_schedule_id = None
+        subscription.founder_intro_ends_at = None
+
+        update_fields.extend(
+            [
+                "is_founder",
+                "stripe_schedule_id",
+                "founder_intro_ends_at",
+            ]
+        )
 
     subscription.save(
         update_fields=update_fields
-    )
-
-
-def _handle_subscription_deleted(stripe_subscription) -> None:
-    Subscription.objects.filter(
-        stripe_subscription_id=stripe_subscription["id"],
-    ).update(
-        status=Subscription.Status.CANCELED,
-        cancel_at_period_end=False,
     )
 
 
